@@ -29,6 +29,7 @@
 #include "memory/MemAudit.h"
 #include "mesh-pb-constants.h"
 #include "mesh/generated/meshtastic/deviceonly_legacy.pb.h"
+#include "HostedIdentities.h"
 #include "meshUtils.h"
 #include "modules/NeighborInfoModule.h"
 #include "target_specific.h"
@@ -724,16 +725,16 @@ NodeNum getFrom(const meshtastic_MeshPacket *p)
     return (p->from == 0) ? nodeDB->getNodeNum() : p->from;
 }
 
-// Returns true if the packet originated from the local node
+// Returns true if the packet originated from the local node, or one of the identities it hosts
 bool isFromUs(const meshtastic_MeshPacket *p)
 {
-    return p->from == 0 || p->from == nodeDB->getNodeNum();
+    return p->from == 0 || p->from == nodeDB->getNodeNum() || hosted::isHosted(p->from);
 }
 
-// Returns true if the packet is destined to us
+// Returns true if the packet is destined to us, or to one of the identities we host
 bool isToUs(const meshtastic_MeshPacket *p)
 {
-    return p->to == nodeDB->getNodeNum();
+    return p->to == nodeDB->getNodeNum() || hosted::isHosted(p->to);
 }
 
 bool isBroadcast(uint32_t dest)

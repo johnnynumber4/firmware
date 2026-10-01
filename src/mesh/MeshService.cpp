@@ -1,4 +1,5 @@
 #include "configuration.h"
+#include "HostedIdentities.h"
 
 #if !MESHTASTIC_EXCLUDE_GPS
 #include "GPS.h"
@@ -295,7 +296,10 @@ void MeshService::handleToRadio(meshtastic_MeshPacket &p)
         return;
     }
 #endif
-    p.from = 0;                          // We don't let clients assign nodenums to their sent messages
+    // We don't let clients assign nodenums to their sent messages, except to send as one of the
+    // identities this radio hosts: those it holds the keys for.
+    if (!hosted::isHosted(p.from))
+        p.from = 0;
     p.next_hop = NO_NEXT_HOP_PREFERENCE; // We don't let clients assign next_hop to their sent messages
     p.relay_node = NO_RELAY_NODE;        // We don't let clients assign relay_node to their sent messages
 

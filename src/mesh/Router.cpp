@@ -1,4 +1,5 @@
 #include "Router.h"
+#include "HostedIdentities.h"
 #include "Channels.h"
 #include "CryptoEngine.h"
 #include "MeshRadio.h"
@@ -384,9 +385,9 @@ meshtastic_MeshPacket *Router::allocForSending()
  * Send an ack or a nak packet back towards whoever sent idFrom
  */
 void Router::sendAckNak(meshtastic_Routing_Error err, NodeNum to, PacketId idFrom, ChannelIndex chIndex, uint8_t hopLimit,
-                        bool ackWantsAck, const meshtastic_MeshPacket *relaySource)
+                        bool ackWantsAck, const meshtastic_MeshPacket *relaySource, NodeNum from)
 {
-    routingModule->sendAckNak(err, to, idFrom, chIndex, hopLimit, ackWantsAck, relaySource);
+    routingModule->sendAckNak(err, to, idFrom, chIndex, hopLimit, ackWantsAck, relaySource, from);
 }
 
 void Router::abortSendAndNak(meshtastic_Routing_Error err, meshtastic_MeshPacket *p)
@@ -919,6 +920,8 @@ static void adminKeyFallbackRefund()
 DecodeState perhapsDecode(meshtastic_MeshPacket *p)
 {
     concurrency::LockGuard g(cryptLock);
+    // A direct message to an identity we host decrypts with that identity's key.
+    hosted::KeyScope identityKeys(p->to);
 
     if (config.device.rebroadcast_mode == meshtastic_Config_DeviceConfig_RebroadcastMode_KNOWN_ONLY &&
         !nodeInfoLiteHasUser(nodeDB->getMeshNode(p->from))) {
@@ -1192,6 +1195,8 @@ bool wouldEncryptWithPKC(const meshtastic_MeshPacket *p, ChannelIndex chIndex, b
 meshtastic_Routing_Error perhapsEncode(meshtastic_MeshPacket *p)
 {
     concurrency::LockGuard g(cryptLock);
+    // A packet from an identity we host is signed and encrypted with that identity's key.
+    hosted::KeyScope identityKeys(getFrom(p));
 
     int16_t hash;
 

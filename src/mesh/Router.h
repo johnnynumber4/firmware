@@ -168,10 +168,11 @@ class Router : protected concurrency::OSThread, protected PacketHistory
     virtual void sniffReceived(const meshtastic_MeshPacket *p, const meshtastic_Routing *c);
 
     /**
-     * Send an ack or a nak packet back towards whoever sent idFrom
+     * Send an ack or a nak packet back towards whoever sent idFrom. `from` is a hosted identity
+     * the packet was addressed to, or 0 to answer as this node.
      */
     void sendAckNak(meshtastic_Routing_Error err, NodeNum to, PacketId idFrom, ChannelIndex chIndex, uint8_t hopLimit = 0,
-                    bool ackWantsAck = false, const meshtastic_MeshPacket *relaySource = nullptr);
+                    bool ackWantsAck = false, const meshtastic_MeshPacket *relaySource = nullptr, NodeNum from = 0);
 
   private:
     /**

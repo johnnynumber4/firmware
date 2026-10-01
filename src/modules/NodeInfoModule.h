@@ -24,6 +24,9 @@ class NodeInfoModule : public ProtobufModule<meshtastic_User>, private concurren
     void sendOurNodeInfo(NodeNum dest = NODENUM_BROADCAST, bool wantReplies = false, uint8_t channel = 0,
                          bool _shorterTimeout = false);
 
+    /** Announce a hosted identity, as itself. See HostedIdentities.h. */
+    void sendHostedNodeInfo(NodeNum identityNum, NodeNum dest = NODENUM_BROADCAST);
+
     /**
      * Schedule an immediate NodeInfo periodic check.
      * Used when external conditions change (for example time source quality).

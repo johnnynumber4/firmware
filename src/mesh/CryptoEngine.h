@@ -39,6 +39,7 @@ class CryptoEngine
 #if !(MESHTASTIC_EXCLUDE_PKI)
 #if !(MESHTASTIC_EXCLUDE_PKI_KEYGEN)
     virtual void generateKeyPair(uint8_t *pubKey, uint8_t *privKey);
+    bool generateDetachedKeyPair(uint8_t *pubKey, uint8_t *privKey);
     virtual bool regeneratePublicKey(uint8_t *pubKey, uint8_t *privKey);
     virtual bool ensurePkiKeys(meshtastic_Config_SecurityConfig &security, meshtastic_User &user);
 #endif
@@ -49,6 +50,7 @@ class CryptoEngine
                        size_t payloadLen, const uint8_t *signature);
 #endif
     void setDHPrivateKey(uint8_t *_private_key);
+    void selectDHPrivateKey(const uint8_t *_private_key);
     // The remotePublic key parameter takes the public_key bytes container from
     // a stored node header. NodeInfoLite is the on-device storage type since
     // the slim refactor flattened UserLite into it.
@@ -99,6 +101,7 @@ class CryptoEngine
 #ifndef PIO_UNIT_TESTING
   protected:
 #endif
+    void stirKeyEntropy();
     /** Our per packet nonce */
     uint8_t nonce[16] = {0};
     CryptoKey key = {};

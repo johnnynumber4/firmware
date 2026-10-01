@@ -1,4 +1,6 @@
 #include "AdminModule.h"
+#include "HostedIdentities.h"
+#include "modules/NodeInfoModule.h"
 #include "Channels.h"
 #include "CryptoEngine.h"
 #include "DisplayFormatters.h"
@@ -603,6 +605,38 @@ bool AdminModule::handleReceivedProtobuf(const meshtastic_MeshPacket &mp, meshta
         nodeDB->clearLocalPosition();
         config.position.fixed_position = false;
         saveChanges(SEGMENT_NODEDATABASE | SEGMENT_CONFIG, false);
+        break;
+    }
+    case meshtastic_AdminMessage_set_hosted_identity_tag: {
+        const meshtastic_HostedIdentity &request = r->set_hosted_identity;
+        NodeNum num = request.num;
+        if (num == 0) {
+            num = hosted::create(request.long_name, request.short_name);
+            if (!num) {
+                LOG_WARN("No hosted identity created: all %u in use, or key generation failed", (unsigned)hosted::MAX_IDENTITIES);
+                myReply = allocErrorResponse(meshtastic_Routing_Error_BAD_REQUEST, &mp);
+                break;
+            }
+        } else if (!hosted::rename(num, request.long_name, request.short_name)) {
+            myReply = allocErrorResponse(meshtastic_Routing_Error_BAD_REQUEST, &mp);
+            break;
+        }
+        // Tell the mesh straight away rather than at the next scheduled announcement.
+        if (nodeInfoModule)
+            nodeInfoModule->sendHostedNodeInfo(num);
+        handleGetHostedIdentities(mp);
+        break;
+    }
+    case meshtastic_AdminMessage_remove_hosted_identity_tag: {
+        if (!hosted::remove(r->remove_hosted_identity)) {
+            myReply = allocErrorResponse(meshtastic_Routing_Error_BAD_REQUEST, &mp);
+            break;
+        }
+        handleGetHostedIdentities(mp);
+        break;
+    }
+    case meshtastic_AdminMessage_get_hosted_identities_request_tag: {
+        handleGetHostedIdentities(mp);
         break;
     }
     case meshtastic_AdminMessage_set_time_only_tag: {
@@ -1723,6 +1757,18 @@ void AdminModule::handleGetNodeRemoteHardwarePins(const meshtastic_MeshPacket &r
     }
 }
 
+/** The hosted identities, public parts only: the reply to their get, set and remove. */
+void AdminModule::handleGetHostedIdentities(const meshtastic_MeshPacket &req)
+{
+    if (!req.decoded.want_response)
+        return;
+    meshtastic_AdminMessage r = meshtastic_AdminMessage_init_default;
+    r.which_payload_variant = meshtastic_AdminMessage_get_hosted_identities_response_tag;
+    hosted::list(r.get_hosted_identities_response);
+    setPassKey(&r);
+    myReply = allocDataProtobuf(r);
+}
+
 void AdminModule::handleGetDeviceMetadata(const meshtastic_MeshPacket &req)
 {
 #if WARM_NODE_COUNT > 0 && MESHTASTIC_NODEDB_MIGRATION_VERBOSE
@@ -2056,6 +2102,8 @@ static pb_size_t adminResponseForRequest(pb_size_t requestVariant)
         return meshtastic_AdminMessage_get_node_remote_hardware_pins_response_tag;
     case meshtastic_AdminMessage_get_ui_config_request_tag:
         return meshtastic_AdminMessage_get_ui_config_response_tag;
+    case meshtastic_AdminMessage_get_hosted_identities_request_tag:
+        return meshtastic_AdminMessage_get_hosted_identities_response_tag;
     default:
         return 0;
     }
@@ -2158,7 +2206,8 @@ bool AdminModule::messageIsRequest(const meshtastic_AdminMessage *r)
         r->which_payload_variant == meshtastic_AdminMessage_get_ringtone_request_tag ||
         r->which_payload_variant == meshtastic_AdminMessage_get_device_connection_status_request_tag ||
         r->which_payload_variant == meshtastic_AdminMessage_get_node_remote_hardware_pins_request_tag ||
-        r->which_payload_variant == meshtastic_AdminMessage_get_ui_config_request_tag)
+        r->which_payload_variant == meshtastic_AdminMessage_get_ui_config_request_tag ||
+        r->which_payload_variant == meshtastic_AdminMessage_get_hosted_identities_request_tag)
         return true;
     else
         return false;

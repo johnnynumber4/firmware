@@ -129,26 +129,26 @@ void ReliableRouter::sniffReceived(const meshtastic_MeshPacket *p, const meshtas
                         // If this packet should always be ACKed reliably with want_ack back to the original sender, make sure we
                         // do that unconditionally.
                         sendAckNak(meshtastic_Routing_Error_NONE, getFrom(p), p->id, p->channel,
-                                   routingModule->getHopLimitForResponse(*p), true);
+                                   routingModule->getHopLimitForResponse(*p), true, nullptr, p->to);
                     } else if (!p->decoded.request_id && !p->decoded.reply_id) {
                         // If it's not an ACK or a reply, send an ACK.
                         sendAckNak(meshtastic_Routing_Error_NONE, getFrom(p), p->id, p->channel,
-                                   routingModule->getHopLimitForResponse(*p));
+                                   routingModule->getHopLimitForResponse(*p), false, nullptr, p->to);
                     } else if ((getHopsAway(*p) == 0) || p->next_hop != NO_NEXT_HOP_PREFERENCE) {
                         // If we received the packet directly from the original sender, send a 0-hop ACK since the original sender
                         // won't overhear any implicit ACKs. If we received the packet via NextHopRouter, also send a 0-hop ACK to
                         // stop the immediate relayer's retransmissions.
-                        sendAckNak(meshtastic_Routing_Error_NONE, getFrom(p), p->id, p->channel, 0);
+                        sendAckNak(meshtastic_Routing_Error_NONE, getFrom(p), p->id, p->channel, 0, false, nullptr, p->to);
                     }
                 } else if (p->which_payload_variant == meshtastic_MeshPacket_encrypted_tag && p->channel == 0 &&
                            (nodeDB->getMeshNode(p->from) == nullptr || nodeDB->getMeshNode(p->from)->public_key.size == 0)) {
                     LOG_INFO("PKI packet from unknown node, send PKI_UNKNOWN_PUBKEY");
                     sendAckNak(meshtastic_Routing_Error_PKI_UNKNOWN_PUBKEY, getFrom(p), p->id, channels.getPrimaryIndex(),
-                               routingModule->getHopLimitForResponse(*p));
+                               routingModule->getHopLimitForResponse(*p), false, nullptr, p->to);
                 } else {
                     // Send a 'NO_CHANNEL' error on the primary channel if want_ack packet destined for us cannot be decoded
                     sendAckNak(meshtastic_Routing_Error_NO_CHANNEL, getFrom(p), p->id, channels.getPrimaryIndex(),
-                               routingModule->getHopLimitForResponse(*p));
+                               routingModule->getHopLimitForResponse(*p), false, nullptr, p->to);
                 }
             } else if (p->next_hop == nodeDB->getLastByteOfNodeNum(getNodeNum()) && p->hop_limit > 0) {
                 // No wantAck, but we need to ACK with hop limit of 0 if we were the next hop to stop their retransmissions

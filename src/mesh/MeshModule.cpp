@@ -1,4 +1,5 @@
 #include "MeshModule.h"
+#include "HostedIdentities.h"
 #include "Channels.h"
 #include "MeshService.h"
 #include "NodeDB.h"
@@ -52,7 +53,7 @@ int32_t MeshModule::setStartDelay()
 }
 
 meshtastic_MeshPacket *MeshModule::allocAckNak(meshtastic_Routing_Error err, NodeNum to, PacketId idFrom, ChannelIndex chIndex,
-                                               uint8_t hopLimit, const meshtastic_MeshPacket *relaySource)
+                                               uint8_t hopLimit, const meshtastic_MeshPacket *relaySource, NodeNum from)
 {
     meshtastic_Routing c = meshtastic_Routing_init_default;
 
@@ -73,6 +74,9 @@ meshtastic_MeshPacket *MeshModule::allocAckNak(meshtastic_Routing_Error err, Nod
 
     p->hop_limit = hopLimit; // Flood ACK back to original sender
     p->to = to;
+    // Answer as the hosted identity the acked packet was addressed to, so the sender sees it delivered.
+    if (hosted::isHosted(from))
+        p->from = from;
     p->decoded.request_id = idFrom;
     p->channel = chIndex;
     // When this ack reports an overheard rebroadcast of our own packet, carry that copy's relaying node
@@ -206,6 +210,9 @@ void MeshModule::callModules(meshtastic_MeshPacket &mp, RxSource src)
 
     if (isDecoded && mp.decoded.want_response && toUs) {
         if (currentReply) {
+            // A request to a hosted identity is answered by that identity.
+            if (hosted::isHosted(mp.to))
+                currentReply->from = mp.to;
             printPacket("Send response", currentReply);
             service->sendToMesh(currentReply);
             currentReply = NULL;

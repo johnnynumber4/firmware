@@ -33,7 +33,35 @@
  */
 void CryptoEngine::generateKeyPair(uint8_t *pubKey, uint8_t *privKey)
 {
-    // Mix in any randomness we can, to make key generation stronger.
+    stirKeyEntropy();
+
+    LOG_DEBUG("Generate Curve25519 keypair");
+    Curve25519::dh1(public_key, private_key);
+    memcpy(pubKey, public_key, sizeof(public_key));
+    memcpy(privKey, private_key, sizeof(private_key));
+#if !(MESHTASTIC_EXCLUDE_XEDDSA)
+    XEdDSA::priv_curve_to_ed_keys(private_key, xeddsa_private_key, xeddsa_public_key);
+#endif
+}
+
+/**
+ * Create a key pair for a hosted identity, leaving this node's own keys in place.
+ */
+bool CryptoEngine::generateDetachedKeyPair(uint8_t *pubKey, uint8_t *privKey)
+{
+    stirKeyEntropy();
+    Curve25519::dh1(pubKey, privKey);
+    if (Curve25519::isWeakPoint(pubKey)) {
+        memset(pubKey, 0, 32);
+        memset(privKey, 0, 32);
+        return false;
+    }
+    return true;
+}
+
+/** Mix in any randomness we can, to make key generation stronger. */
+void CryptoEngine::stirKeyEntropy()
+{
     CryptRNG.begin(optstr(APP_VERSION));
 
     uint8_t hardwareEntropy[64] = {0};
@@ -49,14 +77,6 @@ void CryptoEngine::generateKeyPair(uint8_t *pubKey, uint8_t *privKey)
     }
     auto noise = random();
     CryptRNG.stir((uint8_t *)&noise, sizeof(noise));
-
-    LOG_DEBUG("Generate Curve25519 keypair");
-    Curve25519::dh1(public_key, private_key);
-    memcpy(pubKey, public_key, sizeof(public_key));
-    memcpy(privKey, private_key, sizeof(private_key));
-#if !(MESHTASTIC_EXCLUDE_XEDDSA)
-    XEdDSA::priv_curve_to_ed_keys(private_key, xeddsa_private_key, xeddsa_public_key);
-#endif
 }
 
 /**
@@ -290,6 +310,19 @@ bool CryptoEngine::decryptCurve25519(uint32_t fromNode, meshtastic_NodeInfoLite_
 void CryptoEngine::setDHPrivateKey(uint8_t *_private_key)
 {
     memcpy(private_key, _private_key, 32);
+}
+
+/**
+ * Make another key pair the active one, for packets sent from or to a hosted
+ * identity: Curve25519 for end-to-end encryption and its XEdDSA form for
+ * signing. Callers hold cryptLock and switch back to this node's own key after.
+ */
+void CryptoEngine::selectDHPrivateKey(const uint8_t *_private_key)
+{
+    memcpy(private_key, _private_key, 32);
+#if !(MESHTASTIC_EXCLUDE_XEDDSA)
+    XEdDSA::priv_curve_to_ed_keys(private_key, xeddsa_private_key, xeddsa_public_key);
+#endif
 }
 
 /**

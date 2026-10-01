@@ -1,4 +1,5 @@
 #include "NodeInfoModule.h"
+#include "HostedIdentities.h"
 #include "Default.h"
 #include "MeshService.h"
 #include "NodeDB.h"
@@ -128,6 +129,23 @@ void NodeInfoModule::sendOurNodeInfo(NodeNum dest, bool wantReplies, uint8_t cha
     }
 }
 
+void NodeInfoModule::sendHostedNodeInfo(NodeNum identityNum, NodeNum dest)
+{
+    const meshtastic_HostedIdentityKeys *identity = hosted::find(identityNum);
+    if (!identity)
+        return;
+    meshtastic_MeshPacket *p = allocDataProtobuf(hosted::userFor(*identity));
+    if (!p)
+        return;
+    // Sent as the identity itself, so the router signs it with the identity's key.
+    p->from = identity->num;
+    p->to = dest;
+    p->decoded.want_response = false;
+    p->priority = meshtastic_MeshPacket_Priority_BACKGROUND;
+    LOG_INFO("Send hosted identity !%08x %s/%s", identity->num, identity->long_name, identity->short_name);
+    service->sendToMesh(p);
+}
+
 void NodeInfoModule::triggerImmediateNodeInfoCheck()
 {
     LOG_DEBUG("NodeInfo: scheduling immediate periodic check");
@@ -169,6 +187,14 @@ meshtastic_MeshPacket *NodeInfoModule::allocReply()
         return NULL;
     } else {
         ignoreRequest = false; // Don't ignore requests anymore
+        // A name request to an identity we host is answered with that identity.
+        if (currentRequest && hosted::isHosted(currentRequest->to)) {
+            meshtastic_User hostedUser = hosted::userFor(*hosted::find(currentRequest->to));
+            LOG_INFO("Send hosted identity %s/%s/%s", hostedUser.id, hostedUser.long_name, hostedUser.short_name);
+            if (transmitHistory)
+                transmitHistory->setLastSentToMesh(meshtastic_PortNum_NODEINFO_APP);
+            return allocDataProtobuf(hostedUser);
+        }
         meshtastic_User u = owner;
 
         // FIXME: Clear the user.id field since it should be derived from node number on the receiving end
@@ -232,6 +258,9 @@ int32_t NodeInfoModule::runOnce()
     if (airTime->isTxAllowedAirUtil() && config.device.role != meshtastic_Config_DeviceConfig_Role_CLIENT_HIDDEN) {
         LOG_INFO("Send our nodeinfo to mesh (wantReplies=%d)", requestReplies);
         sendOurNodeInfo(NODENUM_BROADCAST, requestReplies); // Send our info (don't request replies)
+        // Each identity we host announces itself on the same schedule.
+        for (pb_size_t i = 0; i < devicestate.hosted_identities_count; i++)
+            sendHostedNodeInfo(devicestate.hosted_identities[i].num, NODENUM_BROADCAST);
     }
     return Default::getConfiguredOrDefaultMs(config.device.node_info_broadcast_secs, default_node_info_broadcast_secs);
 }
