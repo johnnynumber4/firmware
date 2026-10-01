@@ -1,4 +1,5 @@
 #include "ReliableRouter.h"
+#include "HostedIdentities.h"
 #include "Default.h"
 #include "MeshTypes.h"
 #include "NodeDB.h"
@@ -55,8 +56,9 @@ ErrorCode ReliableRouter::send(meshtastic_MeshPacket *p)
 
 void ReliableRouter::perhapsGenerateImplicitAckForOwnOverheard(const meshtastic_MeshPacket *p)
 {
-    // Note: do not use getFrom() here, because we want to ignore messages sent from phone
-    if (p->from != getNodeNum())
+    // Note: do not use getFrom() here, because we want to ignore messages sent from phone.
+    // A hosted identity's transmissions are ours too: hearing one relayed is its implicit ack.
+    if (p->from != getNodeNum() && !hosted::isHosted(p->from))
         return;
 
     printPacket("Rx someone rebroadcasting for us", p);
