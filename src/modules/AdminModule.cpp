@@ -1,6 +1,5 @@
 #include "AdminModule.h"
 #include "HostedIdentities.h"
-#include "modules/NodeInfoModule.h"
 #include "Channels.h"
 #include "CryptoEngine.h"
 #include "DisplayFormatters.h"
@@ -621,9 +620,8 @@ bool AdminModule::handleReceivedProtobuf(const meshtastic_MeshPacket &mp, meshta
             myReply = allocErrorResponse(meshtastic_Routing_Error_BAD_REQUEST, &mp);
             break;
         }
-        // Tell the mesh straight away rather than at the next scheduled announcement.
-        if (nodeInfoModule)
-            nodeInfoModule->sendHostedNodeInfo(num);
+        // No announcement here: the client decides when, and on which channel, a new identity
+        // introduces itself (by sending a NodeInfo as it). Scheduled announcements follow as usual.
         handleGetHostedIdentities(mp);
         break;
     }
