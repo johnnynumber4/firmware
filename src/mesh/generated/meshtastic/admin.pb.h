@@ -145,6 +145,10 @@ typedef struct _meshtastic_HostedIdentity {
     char short_name[5];
     /* The identity's Curve25519 public key. Set by the firmware. */
     meshtastic_HostedIdentity_public_key_t public_key;
+    /* Don't share this radio's position as this identity. By default an identity
+ broadcasts the radio's position (when the radio does) and answers position
+ requests; true keeps it to the radio itself. Set on create and on rename. */
+    bool hide_position;
 } meshtastic_HostedIdentity;
 
 typedef struct _meshtastic_HostedIdentities {
@@ -636,7 +640,7 @@ extern "C" {
 #define meshtastic_AdminMessage_init_default     {0, {0}, {0, {0}}}
 #define meshtastic_AdminMessage_InputEvent_init_default {0, 0, 0, 0}
 #define meshtastic_AdminMessage_OTAEvent_init_default {_meshtastic_OTAMode_MIN, {0, {0}}}
-#define meshtastic_HostedIdentity_init_default   {0, "", "", {0, {0}}}
+#define meshtastic_HostedIdentity_init_default   {0, "", "", {0, {0}}, 0}
 #define meshtastic_HostedIdentities_init_default {0, {meshtastic_HostedIdentity_init_default, meshtastic_HostedIdentity_init_default, meshtastic_HostedIdentity_init_default, meshtastic_HostedIdentity_init_default}}
 #define meshtastic_LockdownAuth_init_default     {{0, {0}}, 0, 0, 0, 0, 0}
 #define meshtastic_HamParameters_init_default    {"", 0, 0, "", ""}
@@ -654,7 +658,7 @@ extern "C" {
 #define meshtastic_AdminMessage_init_zero        {0, {0}, {0, {0}}}
 #define meshtastic_AdminMessage_InputEvent_init_zero {0, 0, 0, 0}
 #define meshtastic_AdminMessage_OTAEvent_init_zero {_meshtastic_OTAMode_MIN, {0, {0}}}
-#define meshtastic_HostedIdentity_init_zero      {0, "", "", {0, {0}}}
+#define meshtastic_HostedIdentity_init_zero      {0, "", "", {0, {0}}, 0}
 #define meshtastic_HostedIdentities_init_zero    {0, {meshtastic_HostedIdentity_init_zero, meshtastic_HostedIdentity_init_zero, meshtastic_HostedIdentity_init_zero, meshtastic_HostedIdentity_init_zero}}
 #define meshtastic_LockdownAuth_init_zero        {{0, {0}}, 0, 0, 0, 0, 0}
 #define meshtastic_HamParameters_init_zero       {"", 0, 0, "", ""}
@@ -681,6 +685,7 @@ extern "C" {
 #define meshtastic_HostedIdentity_long_name_tag  2
 #define meshtastic_HostedIdentity_short_name_tag 3
 #define meshtastic_HostedIdentity_public_key_tag 4
+#define meshtastic_HostedIdentity_hide_position_tag 5
 #define meshtastic_HostedIdentities_identities_tag 1
 #define meshtastic_LockdownAuth_passphrase_tag   1
 #define meshtastic_LockdownAuth_boots_remaining_tag 2
@@ -909,7 +914,8 @@ X(a, STATIC,   SINGULAR, BYTES,    ota_hash,          2)
 X(a, STATIC,   SINGULAR, UINT32,   num,               1) \
 X(a, STATIC,   SINGULAR, STRING,   long_name,         2) \
 X(a, STATIC,   SINGULAR, STRING,   short_name,        3) \
-X(a, STATIC,   SINGULAR, BYTES,    public_key,        4)
+X(a, STATIC,   SINGULAR, BYTES,    public_key,        4) \
+X(a, STATIC,   SINGULAR, BOOL,     hide_position,     5)
 #define meshtastic_HostedIdentity_CALLBACK NULL
 #define meshtastic_HostedIdentity_DEFAULT NULL
 
@@ -1081,8 +1087,8 @@ extern const pb_msgdesc_t meshtastic_AS3935_config_msg;
 #define meshtastic_AdminMessage_size             511
 #define meshtastic_DS248X_config_size            6
 #define meshtastic_HamParameters_size            47
-#define meshtastic_HostedIdentities_size         356
-#define meshtastic_HostedIdentity_size           87
+#define meshtastic_HostedIdentities_size         364
+#define meshtastic_HostedIdentity_size           89
 #define meshtastic_KeyVerificationAdmin_size     25
 #define meshtastic_LockdownAuth_size             56
 #define meshtastic_NodeRemoteHardwarePinsResponse_size 496

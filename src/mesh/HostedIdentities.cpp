@@ -3,7 +3,9 @@
 #include "HostedIdentities.h"
 
 #include "CryptoEngine.h"
+#include "MeshService.h"
 #include "NodeDB.h"
+#include "Router.h"
 #include <ErriezCRC32.h>
 #include <cstring>
 
@@ -77,11 +79,12 @@ bool isHosted(NodeNum num)
     return findMutable(num) != nullptr;
 }
 
-NodeNum create(const char *longName, const char *shortName)
+NodeNum create(const char *longName, const char *shortName, bool hidePosition)
 {
 #if MESHTASTIC_EXCLUDE_PKI || MESHTASTIC_EXCLUDE_PKI_KEYGEN
     (void)longName;
     (void)shortName;
+    (void)hidePosition;
     return 0;
 #else
     if (devicestate.hosted_identities_count >= MAX_IDENTITIES)
@@ -101,6 +104,7 @@ NodeNum create(const char *longName, const char *shortName)
     if (identity.num == 0)
         return 0;
     applyNames(identity, longName, shortName);
+    identity.hide_position = hidePosition;
     devicestate.hosted_identities[devicestate.hosted_identities_count++] = identity;
     save();
     LOG_INFO("Hosted identity 0x%08x created: %s/%s", identity.num, identity.long_name, identity.short_name);
@@ -108,12 +112,13 @@ NodeNum create(const char *longName, const char *shortName)
 #endif
 }
 
-bool rename(NodeNum num, const char *longName, const char *shortName)
+bool rename(NodeNum num, const char *longName, const char *shortName, bool hidePosition)
 {
     meshtastic_HostedIdentityKeys *identity = findMutable(num);
     if (!identity)
         return false;
     applyNames(*identity, longName, shortName);
+    identity->hide_position = hidePosition;
     save();
     return true;
 }
@@ -146,6 +151,7 @@ void list(meshtastic_HostedIdentities &out)
         strncpy(dst.short_name, src.short_name, sizeof(dst.short_name) - 1);
         dst.public_key.size = src.public_key.size;
         memcpy(dst.public_key.bytes, src.public_key.bytes, src.public_key.size);
+        dst.hide_position = src.hide_position;
     }
 }
 
@@ -162,6 +168,31 @@ meshtastic_User userFor(const meshtastic_HostedIdentityKeys &identity)
     user.public_key.size = identity.public_key.size;
     memcpy(user.public_key.bytes, identity.public_key.bytes, identity.public_key.size);
     return user;
+}
+
+bool hidesPosition(NodeNum num)
+{
+    const meshtastic_HostedIdentityKeys *identity = find(num);
+    return identity && identity->hide_position;
+}
+
+void sendAsEach(const meshtastic_MeshPacket &p, bool isPosition)
+{
+    for (pb_size_t i = 0; i < devicestate.hosted_identities_count; i++) {
+        const meshtastic_HostedIdentityKeys &identity = devicestate.hosted_identities[i];
+        if (isPosition && identity.hide_position)
+            continue;
+        meshtastic_MeshPacket *copy = packetPool.allocCopy(p);
+        if (!copy)
+            return;
+        // Sent as the identity itself, so the router signs it with the identity's key.
+        copy->id = generatePacketId();
+        copy->from = identity.num;
+        // Only the radio asks for replies; the router queues these behind more urgent traffic.
+        copy->decoded.want_response = false;
+        copy->priority = meshtastic_MeshPacket_Priority_BACKGROUND;
+        service->sendToMesh(copy);
+    }
 }
 
 KeyScope::KeyScope(NodeNum num)

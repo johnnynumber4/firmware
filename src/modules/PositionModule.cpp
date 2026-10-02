@@ -3,6 +3,7 @@
 #include "Default.h"
 #include "GPS.h"
 #include "GeofenceModule.h"
+#include "HostedIdentities.h"
 #include "MeshService.h"
 #include "NodeDB.h"
 #include "PositionPrecision.h"
@@ -289,6 +290,10 @@ meshtastic_MeshPacket *PositionModule::allocReply()
         return nullptr;
     }
 
+    // An identity that hides its position answers as this radio does when it shares none.
+    if (currentRequest && hosted::hidesPosition(currentRequest->to))
+        return nullptr;
+
     meshtastic_MeshPacket *reply = allocPositionPacket(precision);
     if (reply) {
         lastSentReply = millis(); // Track when we sent this reply
@@ -303,7 +308,7 @@ void PositionModule::replyOnPositionChannel(const meshtastic_MeshPacket &req)
         LOG_DEBUG("Skip position reply to 0x%08x: position sharing disabled on all channels", getFrom(&req));
         return;
     }
-    if (!service)
+    if (!service || hosted::hidesPosition(req.to))
         return;
 
     precision = getPositionPrecisionForChannel(positionChannel);
@@ -313,6 +318,9 @@ void PositionModule::replyOnPositionChannel(const meshtastic_MeshPacket &req)
 
     setReplyTo(reply, req);
     reply->channel = positionChannel; // not the channel the request came in on
+    // A request to a hosted identity is answered by that identity.
+    if (hosted::isHosted(req.to))
+        reply->from = req.to;
     LOG_INFO("Reply to position request from 0x%08x on position channel %u", getFrom(&req), positionChannel);
     service->sendToMesh(reply);
 }
@@ -463,6 +471,9 @@ void PositionModule::sendOurPosition(NodeNum dest, bool wantReplies, uint8_t cha
     if (channel > 0)
         p->channel = channel;
 
+    // Identities we host broadcast the same position with it, unless they hide theirs.
+    if (isBroadcast(dest))
+        hosted::sendAsEach(*p, true);
     service->sendToMesh(p, RX_SRC_LOCAL, true);
 
     if (IS_ONE_OF(config.device.role, meshtastic_Config_DeviceConfig_Role_TRACKER,

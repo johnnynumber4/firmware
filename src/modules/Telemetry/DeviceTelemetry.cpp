@@ -1,6 +1,7 @@
 #include "DeviceTelemetry.h"
 #include "../mesh/generated/meshtastic/telemetry.pb.h"
 #include "Default.h"
+#include "HostedIdentities.h"
 #include "MeshService.h"
 #include "NodeDB.h"
 #include "PowerFSM.h"
@@ -206,6 +207,9 @@ bool DeviceTelemetryModule::sendTelemetry(NodeNum dest, bool phoneOnly)
         service->sendToPhone(p);
     } else {
         LOG_INFO("Send packet to mesh");
+        // Identities we host report the same metrics, on the same schedule: it's the same radio.
+        if (isBroadcast(p->to))
+            hosted::sendAsEach(*p, false);
         service->sendToMesh(p, RX_SRC_LOCAL, true);
     }
     return true;

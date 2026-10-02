@@ -226,8 +226,9 @@ void MeshModule::callModules(meshtastic_MeshPacket &mp, RxSource src)
             // SECURITY NOTE! I considered sending back a different error code if we didn't find the psk (i.e. !isDecoded)
             // but opted NOT TO.  Because it is not a good idea to let remote nodes 'probe' to find out which PSKs were "good" vs
             // bad.
+            // Sent as the hosted identity the request was addressed to, if any, as for any other reply.
             routingModule->sendAckNak(meshtastic_Routing_Error_NO_RESPONSE, getFrom(&mp), mp.id, mp.channel,
-                                      routingModule->getHopLimitForResponse(mp));
+                                      routingModule->getHopLimitForResponse(mp), false, nullptr, mp.to);
         }
     }
 

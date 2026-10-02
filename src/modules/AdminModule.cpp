@@ -610,13 +610,13 @@ bool AdminModule::handleReceivedProtobuf(const meshtastic_MeshPacket &mp, meshta
         const meshtastic_HostedIdentity &request = r->set_hosted_identity;
         NodeNum num = request.num;
         if (num == 0) {
-            num = hosted::create(request.long_name, request.short_name);
+            num = hosted::create(request.long_name, request.short_name, request.hide_position);
             if (!num) {
                 LOG_WARN("No hosted identity created: all %u in use, or key generation failed", (unsigned)hosted::MAX_IDENTITIES);
                 myReply = allocErrorResponse(meshtastic_Routing_Error_BAD_REQUEST, &mp);
                 break;
             }
-        } else if (!hosted::rename(num, request.long_name, request.short_name)) {
+        } else if (!hosted::rename(num, request.long_name, request.short_name, request.hide_position)) {
             myReply = allocErrorResponse(meshtastic_Routing_Error_BAD_REQUEST, &mp);
             break;
         }

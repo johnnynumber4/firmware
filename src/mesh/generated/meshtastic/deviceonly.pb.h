@@ -112,6 +112,7 @@ typedef struct _meshtastic_HostedIdentityKeys {
     char short_name[5];
     meshtastic_HostedIdentityKeys_public_key_t public_key;
     meshtastic_HostedIdentityKeys_private_key_t private_key;
+    bool hide_position;
 } meshtastic_HostedIdentityKeys;
 
 /* This message is never sent over the wire, but it is used for serializing DB
@@ -238,7 +239,7 @@ extern "C" {
 #define meshtastic_UserLite_init_default         {{0}, "", "", _meshtastic_HardwareModel_MIN, 0, _meshtastic_Config_DeviceConfig_Role_MIN, {0, {0}}, false, 0}
 #define meshtastic_NodeInfoLite_init_default     {0, 0, 0, 0, false, 0, 0, 0, "", "", _meshtastic_HardwareModel_MIN, _meshtastic_Config_DeviceConfig_Role_MIN, {0, {0}}, 0}
 #define meshtastic_DeviceState_init_default      {false, meshtastic_MyNodeInfo_init_default, false, meshtastic_User_init_default, 0, {meshtastic_MeshPacket_init_default}, false, meshtastic_MeshPacket_init_default, 0, 0, 0, false, meshtastic_MeshPacket_init_default, 0, {meshtastic_NodeRemoteHardwarePin_init_default, meshtastic_NodeRemoteHardwarePin_init_default, meshtastic_NodeRemoteHardwarePin_init_default, meshtastic_NodeRemoteHardwarePin_init_default, meshtastic_NodeRemoteHardwarePin_init_default, meshtastic_NodeRemoteHardwarePin_init_default, meshtastic_NodeRemoteHardwarePin_init_default, meshtastic_NodeRemoteHardwarePin_init_default, meshtastic_NodeRemoteHardwarePin_init_default, meshtastic_NodeRemoteHardwarePin_init_default, meshtastic_NodeRemoteHardwarePin_init_default, meshtastic_NodeRemoteHardwarePin_init_default}, 0, {meshtastic_HostedIdentityKeys_init_default, meshtastic_HostedIdentityKeys_init_default, meshtastic_HostedIdentityKeys_init_default, meshtastic_HostedIdentityKeys_init_default}}
-#define meshtastic_HostedIdentityKeys_init_default {0, "", "", {0, {0}}, {0, {0}}}
+#define meshtastic_HostedIdentityKeys_init_default {0, "", "", {0, {0}}, {0, {0}}, 0}
 #define meshtastic_NodePositionEntry_init_default {0, false, meshtastic_PositionLite_init_default}
 #define meshtastic_NodeTelemetryEntry_init_default {0, false, meshtastic_DeviceMetrics_init_default}
 #define meshtastic_NodeEnvironmentEntry_init_default {0, false, meshtastic_EnvironmentMetrics_init_default}
@@ -250,7 +251,7 @@ extern "C" {
 #define meshtastic_UserLite_init_zero            {{0}, "", "", _meshtastic_HardwareModel_MIN, 0, _meshtastic_Config_DeviceConfig_Role_MIN, {0, {0}}, false, 0}
 #define meshtastic_NodeInfoLite_init_zero        {0, 0, 0, 0, false, 0, 0, 0, "", "", _meshtastic_HardwareModel_MIN, _meshtastic_Config_DeviceConfig_Role_MIN, {0, {0}}, 0}
 #define meshtastic_DeviceState_init_zero         {false, meshtastic_MyNodeInfo_init_zero, false, meshtastic_User_init_zero, 0, {meshtastic_MeshPacket_init_zero}, false, meshtastic_MeshPacket_init_zero, 0, 0, 0, false, meshtastic_MeshPacket_init_zero, 0, {meshtastic_NodeRemoteHardwarePin_init_zero, meshtastic_NodeRemoteHardwarePin_init_zero, meshtastic_NodeRemoteHardwarePin_init_zero, meshtastic_NodeRemoteHardwarePin_init_zero, meshtastic_NodeRemoteHardwarePin_init_zero, meshtastic_NodeRemoteHardwarePin_init_zero, meshtastic_NodeRemoteHardwarePin_init_zero, meshtastic_NodeRemoteHardwarePin_init_zero, meshtastic_NodeRemoteHardwarePin_init_zero, meshtastic_NodeRemoteHardwarePin_init_zero, meshtastic_NodeRemoteHardwarePin_init_zero, meshtastic_NodeRemoteHardwarePin_init_zero}, 0, {meshtastic_HostedIdentityKeys_init_zero, meshtastic_HostedIdentityKeys_init_zero, meshtastic_HostedIdentityKeys_init_zero, meshtastic_HostedIdentityKeys_init_zero}}
-#define meshtastic_HostedIdentityKeys_init_zero  {0, "", "", {0, {0}}, {0, {0}}}
+#define meshtastic_HostedIdentityKeys_init_zero  {0, "", "", {0, {0}}, {0, {0}}, 0}
 #define meshtastic_NodePositionEntry_init_zero   {0, false, meshtastic_PositionLite_init_zero}
 #define meshtastic_NodeTelemetryEntry_init_zero  {0, false, meshtastic_DeviceMetrics_init_zero}
 #define meshtastic_NodeEnvironmentEntry_init_zero {0, false, meshtastic_EnvironmentMetrics_init_zero}
@@ -292,6 +293,7 @@ extern "C" {
 #define meshtastic_HostedIdentityKeys_short_name_tag 3
 #define meshtastic_HostedIdentityKeys_public_key_tag 4
 #define meshtastic_HostedIdentityKeys_private_key_tag 5
+#define meshtastic_HostedIdentityKeys_hide_position_tag 6
 #define meshtastic_DeviceState_my_node_tag       2
 #define meshtastic_DeviceState_owner_tag         3
 #define meshtastic_DeviceState_receive_queue_tag 5
@@ -391,7 +393,8 @@ X(a, STATIC,   SINGULAR, UINT32,   num,               1) \
 X(a, STATIC,   SINGULAR, STRING,   long_name,         2) \
 X(a, STATIC,   SINGULAR, STRING,   short_name,        3) \
 X(a, STATIC,   SINGULAR, BYTES,    public_key,        4) \
-X(a, STATIC,   SINGULAR, BYTES,    private_key,       5)
+X(a, STATIC,   SINGULAR, BYTES,    private_key,       5) \
+X(a, STATIC,   SINGULAR, BOOL,     hide_position,     6)
 #define meshtastic_HostedIdentityKeys_CALLBACK NULL
 #define meshtastic_HostedIdentityKeys_DEFAULT NULL
 
@@ -492,8 +495,8 @@ extern const pb_msgdesc_t meshtastic_BackupPreferences_msg;
 #define MESHTASTIC_MESHTASTIC_DEVICEONLY_PB_H_MAX_SIZE meshtastic_BackupPreferences_size
 #define meshtastic_BackupPreferences_size        2656
 #define meshtastic_ChannelFile_size              718
-#define meshtastic_DeviceState_size              2436
-#define meshtastic_HostedIdentityKeys_size       121
+#define meshtastic_DeviceState_size              2444
+#define meshtastic_HostedIdentityKeys_size       123
 #define meshtastic_NodeEnvironmentEntry_size     231
 #define meshtastic_NodeInfoLite_size             112
 #define meshtastic_NodePositionEntry_size        42
