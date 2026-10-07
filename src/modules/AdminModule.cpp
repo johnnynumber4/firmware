@@ -1767,18 +1767,18 @@ void AdminModule::handleGetHostedIdentities(const meshtastic_MeshPacket &req)
     setPassKey(&r);
 
     // Four identities with their keys don't fit in one packet, and a reply that
-    // doesn't fit goes out empty. So make it fit: first without the public keys
-    // (a client can read them from each identity's NodeInfo), then with long
-    // names cut short. Every identity's number always gets through, so each can
-    // still be renamed or removed.
+    // doesn't fit goes out empty. So make it fit: leave out public keys, oldest
+    // identity first and only as many as needed, so the newest (the one just
+    // created) always arrives with its key; a client keeps the keys it has seen.
+    // If even that isn't enough, cut long names short. Every identity's number
+    // always gets through, so each can still be renamed or removed.
     meshtastic_HostedIdentities &list = r.get_hosted_identities_response;
     const size_t room = sizeof(meshtastic_MeshPacket::decoded.payload.bytes);
     size_t size = 0;
-    if (!pb_get_encoded_size(&size, meshtastic_AdminMessage_fields, &r) || size > room) {
-        for (pb_size_t i = 0; i < list.identities_count; i++)
-            list.identities[i].public_key.size = 0;
-    }
-    if (!pb_get_encoded_size(&size, meshtastic_AdminMessage_fields, &r) || size > room) {
+    auto fits = [&]() { return pb_get_encoded_size(&size, meshtastic_AdminMessage_fields, &r) && size <= room; };
+    for (pb_size_t i = 0; i < list.identities_count && !fits(); i++)
+        list.identities[i].public_key.size = 0;
+    if (!fits()) {
         for (pb_size_t i = 0; i < list.identities_count; i++)
             list.identities[i].long_name[16] = '\0';
     }
