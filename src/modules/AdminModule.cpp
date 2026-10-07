@@ -1,3 +1,4 @@
+#include <pb_encode.h>
 #include "AdminModule.h"
 #include "HostedIdentities.h"
 #include "Channels.h"
@@ -1764,6 +1765,23 @@ void AdminModule::handleGetHostedIdentities(const meshtastic_MeshPacket &req)
     r.which_payload_variant = meshtastic_AdminMessage_get_hosted_identities_response_tag;
     hosted::list(r.get_hosted_identities_response);
     setPassKey(&r);
+
+    // Four identities with their keys don't fit in one packet, and a reply that
+    // doesn't fit goes out empty. So make it fit: first without the public keys
+    // (a client can read them from each identity's NodeInfo), then with long
+    // names cut short. Every identity's number always gets through, so each can
+    // still be renamed or removed.
+    meshtastic_HostedIdentities &list = r.get_hosted_identities_response;
+    const size_t room = sizeof(meshtastic_MeshPacket::decoded.payload.bytes);
+    size_t size = 0;
+    if (!pb_get_encoded_size(&size, meshtastic_AdminMessage_fields, &r) || size > room) {
+        for (pb_size_t i = 0; i < list.identities_count; i++)
+            list.identities[i].public_key.size = 0;
+    }
+    if (!pb_get_encoded_size(&size, meshtastic_AdminMessage_fields, &r) || size > room) {
+        for (pb_size_t i = 0; i < list.identities_count; i++)
+            list.identities[i].long_name[16] = '\0';
+    }
     myReply = allocDataProtobuf(r);
 }
 
